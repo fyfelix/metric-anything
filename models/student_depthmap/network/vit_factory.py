@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from types import MethodType
 from typing import Dict, List, Literal
 
@@ -42,10 +43,11 @@ def create_vit(preset: ViTPreset) -> nn.Module:
     """Create and configure a ViT backbone."""
     config = VIT_CONFIG_DICT[preset]
     img_size = (config.img_size, config.img_size)
+    network_dir = Path(__file__).resolve().parent
 
     if preset.startswith("dinov3"):
         model = torch.hub.load(
-            "network",
+            str(network_dir),
             "dinov3_vith16plus",
             source="local",
             pretrained=False,
