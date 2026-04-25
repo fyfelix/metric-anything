@@ -41,7 +41,7 @@ default_model_path() {
             printf "%s\n" "${METRIC_ANYTHING_DEPTHMAP_MODEL_PATH:-ckpts/student_depthmap.pt}"
             ;;
         *)
-            printf "%s\n" "${METRIC_ANYTHING_POINTMAP_MODEL_PATH:-ckpts/student_pointmap.pth}"
+            printf "%s\n" "${METRIC_ANYTHING_POINTMAP_MODEL_PATH:-ckpts/student_pointmap.pt}"
             ;;
     esac
 }
