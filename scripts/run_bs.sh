@@ -21,14 +21,18 @@ Common flags:
   --dataset PATH           HAMMER/ClearPose JSONL path.
   --camera-type TYPE       Raw camera type: d435, l515, or tof.
   --output PATH            Prediction/evaluation output directory.
+  --device DEVICE          Torch device for inference, e.g. cuda, cuda:0, cpu.
   --intrinsics-path PATH   3x3 intrinsics matrix for student_depthmap.
   --f-px VALUE             Focal length in pixels for student_depthmap.
+  --f_px VALUE             Alias for --f-px.
+  --fov-x VALUE            Horizontal FoV in degrees for student_pointmap.
   --align                  Enable per-image scale/shift alignment in eval.
 
 Environment overrides:
   PYTHON_BIN, METRIC_ANYTHING_MODEL_TYPE, METRIC_ANYTHING_MODEL_PATH,
   METRIC_ANYTHING_DATASET_PATH, METRIC_ANYTHING_OUTPUT_DIR,
-  METRIC_ANYTHING_INTRINSICS_PATH, METRIC_ANYTHING_F_PX,
+  METRIC_ANYTHING_DEVICE, METRIC_ANYTHING_INTRINSICS_PATH,
+  METRIC_ANYTHING_F_PX, METRIC_ANYTHING_FOV_X,
   METRIC_ANYTHING_BS, METRIC_ANYTHING_NUM_WORKERS,
   METRIC_ANYTHING_DEPTH_SCALE, METRIC_ANYTHING_MIN_DEPTH,
   METRIC_ANYTHING_MAX_DEPTH, METRIC_ANYTHING_PREDICTION_RESIZE_MODE
@@ -38,10 +42,22 @@ EOF
 default_model_path() {
     case "$1" in
         student_depthmap)
-            printf "%s\n" "${METRIC_ANYTHING_DEPTHMAP_MODEL_PATH:-ckpts/student_depthmap.pt}"
+            if [[ -n "${METRIC_ANYTHING_DEPTHMAP_MODEL_PATH:-}" ]]; then
+                printf "%s\n" "${METRIC_ANYTHING_DEPTHMAP_MODEL_PATH}"
+            elif [[ -e "ckpts/student_depthmap.pt" ]]; then
+                printf "%s\n" "ckpts/student_depthmap.pt"
+            else
+                printf "%s\n" "yjh001/metricanything_student_depthmap"
+            fi
             ;;
         *)
-            printf "%s\n" "${METRIC_ANYTHING_POINTMAP_MODEL_PATH:-ckpts/student_pointmap.pt}"
+            if [[ -n "${METRIC_ANYTHING_POINTMAP_MODEL_PATH:-}" ]]; then
+                printf "%s\n" "${METRIC_ANYTHING_POINTMAP_MODEL_PATH}"
+            elif [[ -e "ckpts/student_pointmap.pt" ]]; then
+                printf "%s\n" "ckpts/student_pointmap.pt"
+            else
+                printf "%s\n" "yjh001/metricanything_student_pointmap"
+            fi
             ;;
     esac
 }
@@ -56,8 +72,10 @@ MODEL_PATH="${METRIC_ANYTHING_MODEL_PATH:-}"
 DATASET_PATH="${METRIC_ANYTHING_DATASET_PATH:-data/HAMMER/test.jsonl}"
 CAMERA_TYPE="${METRIC_ANYTHING_CAMERA_TYPE:-d435}"
 OUTPUT_DIR="${METRIC_ANYTHING_OUTPUT_DIR:-}"
-INTRINSICS_PATH="${METRIC_ANYTHING_INTRINSICS_PATH:-data/HAMMER/intrinsics.txt}"
+DEVICE="${METRIC_ANYTHING_DEVICE:-}"
+INTRINSICS_PATH="${METRIC_ANYTHING_INTRINSICS_PATH:-}"
 F_PX="${METRIC_ANYTHING_F_PX:-}"
+FOV_X="${METRIC_ANYTHING_FOV_X:-}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 BS="${METRIC_ANYTHING_BS:-16}"
@@ -102,12 +120,20 @@ while [[ $# -gt 0 ]]; do
             OUTPUT_DIR="$2"
             shift 2
             ;;
+        --device)
+            DEVICE="$2"
+            shift 2
+            ;;
         --intrinsics-path)
             INTRINSICS_PATH="$2"
             shift 2
             ;;
-        --f-px)
+        --f-px|--f_px)
             F_PX="$2"
+            shift 2
+            ;;
+        --fov-x)
+            FOV_X="$2"
             shift 2
             ;;
         --depth-scale)
@@ -182,12 +208,6 @@ if [[ "${MODEL_TYPE_EXPLICIT}" == "false" ]]; then
     esac
 fi
 
-if [[ ! -e "${MODEL_PATH}" ]]; then
-    echo "Model path does not exist: ${MODEL_PATH}"
-    echo "Refusing to continue so from_pretrained() cannot download weights from the internet."
-    exit 1
-fi
-
 MODEL_NAME="$(basename "${MODEL_PATH}")"
 MODEL_STUB="${MODEL_NAME%%.*}"
 DATASET_NAME="$(basename "$(dirname "${DATASET_PATH}")")"
@@ -196,7 +216,7 @@ if [[ -z "${DATASET_NAME}" || "${DATASET_NAME}" == "." ]]; then
 fi
 
 if [[ -z "${OUTPUT_DIR}" ]]; then
-    if [[ -e "${MODEL_PATH}" || -d "$(dirname "${MODEL_PATH}")" ]]; then
+    if [[ -e "${MODEL_PATH}" ]]; then
         OUTPUT_PARENT="$(dirname "${MODEL_PATH}")"
     else
         OUTPUT_PARENT="${METRIC_ANYTHING_EVAL_ROOT:-eval}"
@@ -210,16 +230,22 @@ echo "Dataset: ${DATASET_PATH}"
 echo "Camera Type: ${CAMERA_TYPE}"
 echo "Python: ${PYTHON_BIN}"
 echo "Output Directory: ${OUTPUT_DIR}"
+if [[ -n "${DEVICE}" ]]; then
+    echo "Device: ${DEVICE}"
+fi
 echo "Batch Size: ${BS}"
 echo "Workers: ${NUM_WORKERS}"
 echo "Depth Scale: ${DEPTH_SCALE}"
 echo "Eval Depth Range Defaults: [${MIN_DEPTH}, ${MAX_DEPTH}]"
 echo "Prediction Resize Mode: ${PREDICTION_RESIZE_MODE}"
-if [[ -n "${INTRINSICS_PATH}" ]]; then
+if [[ "${MODEL_TYPE}" == "student_depthmap" && -n "${INTRINSICS_PATH}" ]]; then
     echo "Intrinsics Path: ${INTRINSICS_PATH}"
 fi
-if [[ -n "${F_PX}" ]]; then
+if [[ "${MODEL_TYPE}" == "student_depthmap" && -n "${F_PX}" ]]; then
     echo "DepthMap f_px: ${F_PX}"
+fi
+if [[ "${MODEL_TYPE}" == "student_pointmap" && -n "${FOV_X}" ]]; then
+    echo "PointMap fov_x: ${FOV_X}"
 fi
 
 INFER_ARGS=(
@@ -237,11 +263,17 @@ INFER_ARGS=(
     --num-workers "${NUM_WORKERS}"
 )
 
-if [[ -n "${INTRINSICS_PATH}" ]]; then
+if [[ -n "${DEVICE}" ]]; then
+    INFER_ARGS+=(--device "${DEVICE}")
+fi
+if [[ "${MODEL_TYPE}" == "student_depthmap" && -n "${INTRINSICS_PATH}" ]]; then
     INFER_ARGS+=(--intrinsics-path "${INTRINSICS_PATH}")
 fi
-if [[ -n "${F_PX}" ]]; then
+if [[ "${MODEL_TYPE}" == "student_depthmap" && -n "${F_PX}" ]]; then
     INFER_ARGS+=(--f-px "${F_PX}")
+fi
+if [[ "${MODEL_TYPE}" == "student_pointmap" && -n "${FOV_X}" ]]; then
+    INFER_ARGS+=(--fov-x "${FOV_X}")
 fi
 
 echo "[1/2] Running MetricAnything batch inference..."
