@@ -17,8 +17,11 @@ EVAL_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = EVAL_DIR.parent
 STUDENT_DEPTHMAP_DIR = PROJECT_ROOT / "models" / "student_depthmap"
 
-if str(STUDENT_DEPTHMAP_DIR) not in sys.path:
-    sys.path.insert(0, str(STUDENT_DEPTHMAP_DIR))
+for import_path in (str(EVAL_DIR), str(STUDENT_DEPTHMAP_DIR)):
+    if import_path in sys.path:
+        sys.path.remove(import_path)
+sys.path.insert(0, str(EVAL_DIR))
+sys.path.insert(1, str(STUDENT_DEPTHMAP_DIR))
 
 
 def parse_arguments() -> argparse.Namespace:
