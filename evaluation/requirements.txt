@@ -1,0 +1,10 @@
+numpy
+loguru
+matplotlib
+opencv-python
+pandas
+pillow
+torch
+torchvision
+tqdm
+huggingface_hub
