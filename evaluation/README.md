@@ -4,7 +4,7 @@
 当前适配是固定目标，不是通用模型注册框架：
 
 - 模型：`models/student_depthmap/depth_model.py::MetricAnythingDepthMap`
-- 默认 checkpoint / repo id：`yjh001/metricanything_student_depthmap`
+- 默认 checkpoint：`ckpts/student_depthmap.pt`
 - 数据集：HAMMER JSONL
 - 指标：沿用 `utils/metric.py`，未修改指标定义
 
@@ -21,6 +21,7 @@
   写出 CSV/JSON 指标。
 - `dataset.py`：从原 pipeline 复制的 HAMMER JSONL loader。
 - `utils/metric.py`：从原 pipeline 复制的固定指标实现。
+- `requirements.txt`：运行评估入口和 legacy helper 所需的依赖。
 
 ## 数据集路径
 
@@ -41,7 +42,7 @@ JSONL 样本需保留原 HAMMER 字段：`rgb`、`d435_depth`、`l515_depth`、
 
 ## 运行方式
 
-使用默认 Hugging Face 模型：
+使用默认本地 checkpoint：
 
 ```bash
 ./evaluation/run_eval.sh
@@ -63,7 +64,7 @@ JSONL 样本需保留原 HAMMER 字段：`rgb`、`d435_depth`、`l515_depth`、
 
 ```text
 DATASET_PATH          默认：data/HAMMER/test.jsonl
-OUTPUT_DIR            默认：evaluation_outputs/hammer_<model>_data_<raw_type>
+OUTPUT_DIR            默认：evaluation/output
 BATCH_SIZE            默认：1；建议当前官方推理路径使用 1
 NUM_WORKERS           默认：0
 DEVICE                例如 cuda、cuda:0、cpu 或 mps
@@ -71,8 +72,14 @@ F_PX                  可选，所有图像统一使用的焦距像素值
 INTRINSICS_PATH       相机内参 txt；默认：<DATASET_PATH 所在目录>/intrinsics.txt
 REQUIRE_FOCAL         true 表示缺少显式 focal 时直接报错
 LOCAL_FILES_ONLY      true 表示禁止 Hugging Face 下载，只使用本地缓存
-SAVE_VIS              true 表示额外保存 depth 预览 PNG
+SAVE_VIS              默认：true；设为 false 可跳过 depth 预览 PNG
 PYTHON_BIN            默认：python3
+```
+
+评估依赖：
+
+```bash
+pip install -r evaluation/requirements.txt
 ```
 
 ## 预测输出格式

@@ -9,11 +9,11 @@ PYTHON_BIN="${PYTHON_BIN:-python3}"
 usage() {
     cat <<'EOF'
 Usage:
-  ./evaluation/run_eval.sh [model_ref=yjh001/metricanything_student_depthmap] [raw_type=d435] [cleanup_npy=false]
+  ./evaluation/run_eval.sh [model_ref=ckpts/student_depthmap.pt] [raw_type=d435] [cleanup_npy=false]
 
 Environment overrides:
   DATASET_PATH          HAMMER JSONL path. Default: data/HAMMER/test.jsonl
-  OUTPUT_DIR            Prediction/evaluation output directory.
+  OUTPUT_DIR            Prediction/evaluation output directory. Default: evaluation/output
   BATCH_SIZE            Inference batch size. Default: 1
   NUM_WORKERS           Inference DataLoader workers. Default: 0
   DEVICE                Inference device, e.g. cuda, cuda:0, cpu, or mps.
@@ -21,7 +21,7 @@ Environment overrides:
   INTRINSICS_PATH       Camera intrinsics txt path. Default: <DATASET_PATH dir>/intrinsics.txt
   REQUIRE_FOCAL         Set true to fail when no explicit focal is available.
   LOCAL_FILES_ONLY      Set true to avoid Hugging Face downloads.
-  SAVE_VIS              Set true to save depth preview PNGs.
+  SAVE_VIS              Set false to skip depth preview PNGs. Default: true
   PYTHON_BIN            Python executable. Default: python3
 
 This wrapper is fixed to the current project model:
@@ -34,7 +34,7 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     exit 0
 fi
 
-model_ref="${1:-${MODEL_PATH:-yjh001/metricanything_student_depthmap}}"
+model_ref="${1:-${MODEL_PATH:-ckpts/student_depthmap.pt}}"
 raw_type="${2:-${RAW_TYPE:-d435}}"
 cleanup_npy="${3:-${CLEANUP_NPY:-false}}"
 
@@ -43,10 +43,7 @@ batch_size="${BATCH_SIZE:-1}"
 num_workers="${NUM_WORKERS:-0}"
 arch="${ARCH:-vitl}"
 intrinsics_path="${INTRINSICS_PATH:-$(dirname "${dataset_path}")/intrinsics.txt}"
-
-model_name="$(basename "${model_ref}")"
-model_stub="${model_name%%.*}"
-output_dir="${OUTPUT_DIR:-${PROJECT_ROOT}/evaluation_outputs/hammer_${model_stub}_data_${raw_type}}"
+output_dir="${OUTPUT_DIR:-${PROJECT_ROOT}/evaluation/output}"
 
 echo "model ref: ${model_ref}"
 echo "fixed model class: MetricAnythingDepthMap"
@@ -57,6 +54,7 @@ echo "batch size: ${batch_size}"
 echo "num workers: ${num_workers}"
 echo "output dir: ${output_dir}"
 echo "cleanup npy: ${cleanup_npy}"
+echo "save vis: ${SAVE_VIS:-true}"
 
 infer_args=(
     "${PYTHON_BIN}" "${SCRIPT_DIR}/infer.py"
@@ -86,7 +84,7 @@ if [[ "${LOCAL_FILES_ONLY:-false}" == "true" ]]; then
     infer_args+=(--local-files-only)
 fi
 
-if [[ "${SAVE_VIS:-false}" == "true" ]]; then
+if [[ "${SAVE_VIS:-true}" == "true" ]]; then
     infer_args+=(--save-vis)
 fi
 

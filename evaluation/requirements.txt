@@ -2,9 +2,12 @@ numpy
 loguru
 matplotlib
 opencv-python
+OpenEXR
 pandas
 pillow
 torch
 torchvision
 tqdm
 huggingface_hub
+Imath
+decord
